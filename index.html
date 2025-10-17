@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>阶段四 · 综合应用与泛化</title>
+<style>
+  :root{--bg:#0b1020;--panel:#0f1530;--line:#2a3561;--text:#e9edff;--muted:#aab4ff;--ok:#27c17d;--bad:#ff5d6a;--brand:#5b8cff;--r:18px}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,#0b1020,#0b1126);color:var(--text);font-family:-apple-system,system-ui,"PingFang SC","Noto Sans SC",Arial}
+  .app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto;max-width:520px;margin:0 auto}
+  header{position:sticky;top:0;background:rgba(15,21,48,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:20}
+  .bar{display:flex;align-items:center;gap:10px;padding:10px 14px}
+  .bar h1{font-size:18px;margin:0;font-weight:800}
+  .bar .act{margin-left:auto;display:flex;gap:8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#151d42;color:var(--text);border-radius:14px;padding:10px 14px;font-weight:700;min-height:44px;min-width:44px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  .btn.primary{background:linear-gradient(90deg,var(--brand),#73a4ff);border-color:transparent;color:#fff}
+  .btn.ghost{background:transparent}
+  .btn:active{transform:scale(.98)}
+  main{padding:12px}
+  .sec{background:linear-gradient(160deg,var(--panel),#0d1330);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:12px}
+  .sec h2{font-size:16px;margin:0 0 8px 0}
+  .grid{display:grid;grid-template-columns:1fr;gap:8px}
+  .tile{display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#121a3a,#0e1533);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .tile .ico{font-size:24px}
+  .tile .meta{margin-left:auto;color:var(--muted);font-size:12px}
+  .hero{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .hero .ico{font-size:22px}
+  .card{background:linear-gradient(160deg,#11183a,#0d1330);border:1px solid var(--line);border-radius:16px;padding:12px}
+  .row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .chip{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#1b234a;color:var(--muted);font-size:12px}
+  .canvas{width:100%;height:300px;border-radius:12px;background:#0a0f24;border:1px solid var(--line);display:grid;place-items:center;position:relative}
+  .sticker-bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .draggable{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#1a2147;font-size:26px}
+  .drop.over{background:rgba(91,140,255,.08)}
+  .choices{display:grid;grid-template-columns:1fr;gap:10px}
+  .choice{border:2px solid var(--line);border-radius:14px;background:#151d42;color:var(--text);min-height:64px;font-size:18px;font-weight:700}
+  .choice.good{border-color:var(--ok);background:linear-gradient(180deg,#10271f,#0e1f19)}
+  .choice.bad{border-color:var(--bad);background:linear-gradient(180deg,#2a1620,#1c0f14)}
+  /* 绘画工具 */
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  input[type="color"]{width:44px;height:44px;border:none;border-radius:10px;background:#151d42}
+  .tool{min-height:44px}
+  canvas{touch-action:none;background:#001126;border:1px solid var(--line);border-radius:12px}
+  footer{padding:8px 14px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div class="bar">
+      <h1>🌟 阶段四 · 综合应用与泛化</h1>
+      <div class="act">
+        <button class="btn" id="btnHome">🏠</button>
+        <button class="btn" id="btnReport">📈</button>
+        <button class="btn" id="btnExport">🧾</button>
+      </div>
+    </div>
+  </header>
+  <main id="main" tabindex="-1" aria-live="polite"></main>
+  <footer>© <span id="y"></span> 情绪训练 · 阶段四 · 本地运行 / iPad 触控优化</footer>
+</div>
+<script>
+(function(){
+  const $=(s,el=document)=>el.querySelector(s);
+  const $$=(s,el=document)=>Array.from(el.querySelectorAll(s));
+  const DB_KEY='emo.stage4.v1';
+  const state={score:{}, prefs:{speech:true}};
+  const speak=(t)=>{ if(!state.prefs.speech) return; try{const u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){} };
+  const save=()=>localStorage.setItem(DB_KEY,JSON.stringify(state));
+  const load=()=>{try{const raw=localStorage.getItem(DB_KEY); if(raw) Object.assign(state, JSON.parse(raw));}catch(e){} };
+  const bump=(gid,ok)=>{ const s=state.score[gid]||(state.score[gid]={ok:0,ng:0,best:0,last:''}); if(ok) s.ok++; else s.ng++; s.best=Math.max(s.best,s.ok); s.last=new Date().toLocaleString(); save(); };
+  const csv=()=>{ const rows=[["game","ok","ng","best","last"]]; Object.entries(state.score).forEach(([g,s])=>rows.push([g,s.ok||0,s.ng||0,s.best||0,s.last||''])); return rows.map(r=>r.join(',')).join('\n'); };
+  const download=(name,content)=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8;'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); };
+
+  function home(){
+    const items=[
+      {id:'g10',hash:'#g10',ico:'👧',name:'(10) 换脸小女孩'},
+      {id:'g11',hash:'#g11',ico:'🫧',name:'(11) 消除坏情绪'},
+      {id:'g12',hash:'#g12',ico:'🎨',name:'(12) 情绪绘画表达'}
+    ];
+    $('#main').innerHTML=`<section class='sec'><h2>选择一个小游戏开始</h2><div class='grid'>${items.map(x=>`<button class='tile' onclick=\"location.hash='${x.hash}'\"><div class='ico'>${x.ico}</div><div>${x.name}</div><div class='meta'>最佳 ${(state.score[x.id]?.best)||0}</div></button>`).join('')}</div><div class='row' style='margin-top:8px'><span class='chip'>语音播报已${state.prefs.speech?'开启':'关闭'}</span><button class='btn' id='toggleSpeech'>🔊 切换语音</button></div></section>`;
+    $('#toggleSpeech').onclick=()=>{state.prefs.speech=!state.prefs.speech; save(); home();};
+    speak('请选择一个训练开始。');
+  }
+
+  function report(){
+    const list=Object.entries(state.score);
+    $('#main').innerHTML=`<section class='sec'><div class='hero'><div class='ico'>📈</div><h2>学习报告</h2></div><div class='card'><table style='width:100%;border-collapse:collapse;font-size:14px'><thead><tr><th style='text-align:left;padding:6px;border-bottom:1px solid var(--line)'>游戏</th><th style='text-align:right;padding:6px;border-bottom:1px solid var(--line)'>✅</th><th style='text-align:right;padding:6px;border-bottom:1px solid var(--line)'>❌</th><th style='text-align:right;padding:6px;border-bottom:1px solid var(--line)'>🏆</th><th style='text-align:right;padding:6px;border-bottom:1px solid var(--line)'>最近</th></tr></thead><tbody>${list.map(([g,s])=>`<tr><td style='padding:6px;border-bottom:1px dashed var(--line)'>${g}</td><td style='padding:6px;text-align:right;border-bottom:1px dashed var(--line)'>${s.ok||0}</td><td style='padding:6px;text-align:right;border-bottom:1px dashed var(--line)'>${s.ng||0}</td><td style='padding:6px;text-align:right;border-bottom:1px dashed var(--line)'>${s.best||0}</td><td style='padding:6px;text-align:right;border-bottom:1px dashed var(--line)'>${s.last||'—'}</td></tr>`).join('')}</tbody></table></div><div class='row' style='margin-top:8px'><span class='chip'>本地保存 · 可导出 CSV</span><button class='btn primary' id='back'>返回主页</button></div></section>`;
+    $('#back').onclick=()=>{location.hash='#home'}
+  }
+
+  // ===== g10 换脸小女孩（多目标） =====
+  function g10(){
+    const targets=['高兴','伤心','生气','害怕'];
+    const icons={高兴:'😊',伤心:'😢',生气:'😠',害怕:'😨'};
+    const target = targets[Math.floor(Math.random()*targets.length)];
+    const stickers=[{emo:'高兴',icon:'😊'},{emo:'伤心',icon:'😢'},{emo:'生气',icon:'😠'},{emo:'害怕',icon:'😨'}].sort(()=>Math.random()-.5);
+    $('#main').innerHTML=`<section class='sec'><div class='hero'><div class='ico'>🌟</div><h2>(10) 换脸小女孩</h2></div><div class='card'><div class='canvas drop' id='canvas'><div style='text-align:center'><div style='font-size:46px'>👧</div><div class='chip'>题目：选择 <b>${target}</b> 的表情并放到小女孩脸上</div></div></div><div class='sticker-bar' id='bar'>${stickers.map(s=>`<div class='draggable' draggable='true' data-emo='${s.emo}'>${s.icon}</div>`).join('')}</div><div class='row' style='margin-top:8px'><span class='chip'>拖拽表情到小女孩脸上</span><button class='btn primary' id='again'>再来一题</button></div></div></section>`;
+    const canvas=$('#canvas');
+    canvas.addEventListener('dragover',e=>{e.preventDefault(); canvas.classList.add('over')});
+    canvas.addEventListener('dragleave',()=>canvas.classList.remove('over'));
+    canvas.addEventListener('drop',e=>{e.preventDefault(); canvas.classList.remove('over'); const emo=e.dataTransfer.getData('text/plain'); const ok=emo===target; if(ok){ canvas.innerHTML=`<div style='text-align:center'><div style='font-size:46px'>👧</div><div style='font-size:80px;line-height:1'>${icons[target]}</div><div class='chip'>你真棒！</div></div>`; bump('g10',true); speak('你真棒！'); }else{ bump('g10',false); speak('再想想'); } });
+    $$('.draggable').forEach(d=>{ d.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/plain', d.dataset.emo)}); });
+    $('#again').onclick=()=>g10();
+  }
+
+  // ===== g11 消除坏情绪 =====
+  function g11(){
+    const pos=['😊','🥰','😍','😄']; const neg=['😠','😢','😨','😞'];
+    const pool=[...pos,...neg].sort(()=>Math.random()-.5).slice(0,8);
+    const need=pool.filter(x=>neg.includes(x)).length; let killed=0;
+    $('#main').innerHTML=`<section class='sec'><div class='hero'><div class='ico'>🌟</div><h2>(11) 消除坏情绪</h2></div><div class='card'><p class='chip'>已消除：<b id='k'>0</b> / ${need} 个坏情绪</p><div class='choices' id='list'>${pool.map(e=>`<button class='choice' data-emo='${e}' style='font-size:28px;min-height:60px'>${e}</button>`).join('')}</div><div class='row' style='margin-top:8px'><button class='btn primary' id='again'>再来一轮</button></div></div></section>`;
+    $('#list').onclick=(ev)=>{ const b=ev.target.closest('.choice'); if(!b) return; const emo=b.dataset.emo; const isNeg=['😠','😢','😨','😞'].includes(emo); if(isNeg){ b.classList.add('good'); b.disabled=true; killed++; $('#k').textContent=killed; bump('g11',true); if(killed===need) speak('太棒了，全部清除！'); }else{ b.classList.add('bad'); bump('g11',false); speak('这是好情绪，留下它'); setTimeout(()=>b.classList.remove('bad'),400); } };
+    $('#again').onclick=()=>g11();
+  }
+
+  // ===== g12 情绪绘画表达（画板 + 人脸轮廓） =====
+  function g12(){
+    $('#main').innerHTML=`<section class='sec'><div class='hero'><div class='ico'>🎨</div><h2>(12) 情绪绘画表达</h2></div><div class='card'><p class='chip'>在模板上画出“今天的表情”，可保存图片</p><div class='tools'><label class='chip'>颜色 <input type='color' id='color' value='#ffd166'></label><label class='chip'>粗细 <input type='range' id='size' min='2' max='28' value='8' style='vertical-align:middle'></label><button class='btn tool' id='eraser'>橡皮</button><button class='btn tool' id='clear'>清空</button><button class='btn primary tool' id='save'>保存PNG</button></div><div style='margin-top:8px;display:grid;place-items:center'><canvas id='pad' width='440' height='440'></canvas></div></div></section>`;
+    const cvs=$('#pad'); const ctx=cvs.getContext('2d');
+    // 画模板：人脸轮廓
+    function drawTemplate(){
+      ctx.clearRect(0,0,cvs.width,cvs.height);
+      ctx.strokeStyle='#345'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round';
+      // 脸
+      ctx.beginPath(); ctx.arc(220,220,160,0,Math.PI*2); ctx.stroke();
+      // 眼睛位置
+      ctx.beginPath(); ctx.arc(170,200,12,0,Math.PI*2); ctx.arc(270,200,12,0,Math.PI*2); ctx.stroke();
+      // 鼻子点
+      ctx.beginPath(); ctx.arc(220,235,4,0,Math.PI*2); ctx.stroke();
+    }
+    drawTemplate();
+
+    let drawing=false, last=null; let color=$('#color').value; let size=+$('#size').value; let erasing=false;
+    function pos(e){ const r=cvs.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x,y}; }
+    function line(a,b){ ctx.strokeStyle= erasing? '#001126' : color; ctx.lineWidth=size; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+
+    cvs.addEventListener('pointerdown',e=>{ drawing=true; last=pos(e); cvs.setPointerCapture(e.pointerId); });
+    cvs.addEventListener('pointermove',e=>{ if(!drawing) return; const p=pos(e); line(last,p); last=p; });
+    cvs.addEventListener('pointerup',e=>{ drawing=false; last=null; });
+    cvs.addEventListener('touchstart',e=>{ drawing=true; last=pos(e); },{passive:true});
+    cvs.addEventListener('touchmove',e=>{ if(!drawing) return; const p=pos(e); line(last,p); last=p; },{passive:true});
+    cvs.addEventListener('touchend',()=>{ drawing=false; last=null; });
+
+    $('#color').oninput=(e)=>{ color=e.target.value; erasing=false; };
+    $('#size').oninput=(e)=>{ size=+e.target.value; };
+    $('#eraser').onclick=()=>{ erasing=!erasing; speak(erasing?'橡皮已开启':'橡皮已关闭'); };
+    $('#clear').onclick=()=>{ drawTemplate(); };
+    $('#save').onclick=()=>{ const a=document.createElement('a'); a.href=cvs.toDataURL('image/png'); a.download='emotion_drawing.png'; a.click(); };
+
+    // 给一次“完成”正反馈计分
+    if(!state.score.g12) state.score.g12={ok:0,ng:0,best:0,last:''};
+    const mark=()=>{ bump('g12',true); speak('作品已保存，做得好！'); };
+    $('#save').addEventListener('click',mark,{once:true});
+  }
+
+  const routes={'#home':home,'':home,'#report':report,'#g10':g10,'#g11':g11,'#g12':g12};
+  function router(){ (routes[location.hash]||home)(); window.scrollTo({top:0,behavior:'instant'}); }
+  function bind(){
+    $('#btnHome').onclick=()=>location.hash='#home';
+    $('#btnReport').onclick=()=>location.hash='#report';
+    $('#btnExport').onclick=()=>download('stage4_report.csv', csv());
+  }
+  load(); bind(); router(); window.addEventListener('hashchange',router); $('#y').textContent=new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
